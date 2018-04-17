@@ -5,9 +5,11 @@ A Demo Application showcasing how to write code to manipulate the Bluetooth Tech
 
 ## Getting Started
 
-1st) Download Android studio
-2nd) Download/Clone the project files here
-3rd) Build the project in Android Studio 
+ 1st) Download Android studio
+
+ 2nd) Download/Clone the project files here
+
+ 3rd) Build the project in Android Studio 
 
 This project will not work on an emulator, it must be built to a device in order to perform bluetooth operations. 
 
