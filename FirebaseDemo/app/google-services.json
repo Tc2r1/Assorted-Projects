@@ -1,0 +1,42 @@
+{
+  "project_info": {
+    "project_number": "1006857133739",
+    "firebase_url": "https://fir-demoproject-9982c.firebaseio.com",
+    "project_id": "fir-demoproject-9982c",
+    "storage_bucket": "fir-demoproject-9982c.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1006857133739:android:aa0be09c313d2e00",
+        "android_client_info": {
+          "package_name": "com.chigames.firebasedemo"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "1006857133739-nlh9b791tsft7vqnsv0q225vrprdh171.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCXDZyrCxS760iuqs-Zy06aolfTi8QNJTU"
+        }
+      ],
+      "services": {
+        "analytics_service": {
+          "status": 1
+        },
+        "appinvite_service": {
+          "status": 1,
+          "other_platform_oauth_client": []
+        },
+        "ads_service": {
+          "status": 2
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
