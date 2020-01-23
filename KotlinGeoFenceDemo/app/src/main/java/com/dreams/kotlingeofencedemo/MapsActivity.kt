@@ -1,7 +1,10 @@
 package com.dreams.kotlingeofencedemo
 
 import android.Manifest
+import android.annotation.SuppressLint
+import android.content.Context
 import android.content.pm.PackageManager
+import android.location.*
 import android.os.Build
 import android.os.Bundle
 import android.util.Log
@@ -10,29 +13,54 @@ import androidx.annotation.RequiresApi
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
+import com.google.android.gms.location.FusedLocationProviderClient
+import com.google.android.gms.location.LocationServices
 import com.google.android.gms.maps.CameraUpdateFactory
 import com.google.android.gms.maps.GoogleMap
 import com.google.android.gms.maps.OnMapReadyCallback
 import com.google.android.gms.maps.SupportMapFragment
 import com.google.android.gms.maps.model.LatLng
+import com.google.android.gms.maps.model.Marker
 import com.google.android.gms.maps.model.MarkerOptions
 
-class MapsActivity : AppCompatActivity(), OnMapReadyCallback {
+class MapsActivity : AppCompatActivity(), OnMapReadyCallback, LocationListener {
 
     private val TAG = "MapsActivity"
     private val REQUEST_PERMISSIONS_ID_CODE = 123
-    private lateinit var mMap: GoogleMap
+    private var mapFragment: SupportMapFragment? = null
+
+    private lateinit var map: GoogleMap
+
+
+    private var locationManager: LocationManager? = null
+    private lateinit var fusedLocationClient: FusedLocationProviderClient
+
+    private var lastLocation: Location? = null
+    private var locationMarker: Marker? = null
+    private var initFindUser: Boolean = true
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_maps)
+
+        // Get a Ref to Location Manager.
+        locationManager = getSystemService(Context.LOCATION_SERVICE) as LocationManager
+
         // Check for and request required permissions.
-        setPermissions()
-        
-        // Obtain the SupportMapFragment and get notified when the map is ready to be used.
-        val mapFragment = supportFragmentManager
-            .findFragmentById(R.id.map) as SupportMapFragment
-        mapFragment.getMapAsync(this)
+        if(setPermissions()){
+            // Start Requesting Updates.
+            startLocationUpdates()
+        }
+
+        // Obtain the SupportMapFragment
+        initGmaps()
+
+        createGoogleApi()
+    }
+
+    @SuppressLint("MissingPermission")
+    private fun startLocationUpdates(){
+        locationManager?.requestLocationUpdates(LocationManager.GPS_PROVIDER, 3000, 0.0f, this)
     }
 
 
@@ -46,7 +74,7 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback {
             getPermissionsNeededListPre0(permissionsNeededList)
         }
 
-        if (!permissionsNeededList.isEmpty()) {
+        if (permissionsNeededList.isNotEmpty()) {
             makeRequest(permissionsNeededList)
             return false
         }
@@ -138,8 +166,9 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback {
                             && perms.get(Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
                         ) {
                             Log.d(TAG, "Background and Fine location services permission granted")
-                            // process the normal flow
-                            //else any one or both the permissions are not granted
+
+                            // Start Requesting Updates.
+                            startLocationUpdates()
                         } else {
                             Log.d(TAG, "Some permissions are not granted ask again ")
                             //permission is denied (this is the first time, when "never ask again" is not checked) so ask again explaining the usage of permission
@@ -158,7 +187,7 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback {
                                 builder.setTitle("Permissions Required")
                                 builder.setPositiveButton("Okay")
                                 { dialog, which ->
-                                    Log.d(TAG, "Clicked")
+                                    Log.d(TAG, "Permissions Accepted")
                                     makeRequest(
                                         mutableListOf(
                                             Manifest.permission.ACCESS_BACKGROUND_LOCATION,
@@ -179,8 +208,6 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback {
 
                                 this.finish()
 
-
-                                //proceed with logic by disabling the related features or quit the app.
                             }
                             //permission is denied (and never ask again is  checked)
                         }
@@ -188,12 +215,13 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback {
                         // Check for both permissions
                         if (perms.get(Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
                             Log.d(TAG, "Fine location services permission granted")
-                            // process the normal flow
-                            //else any one or both the permissions are not granted
+
+                            // Start Requesting Updates.
+                            startLocationUpdates()
                         } else {
                             Log.d(TAG, "Some permissions are not granted ask again ")
                             //permission is denied (this is the first time, when "never ask again" is not checked) so ask again explaining the usage of permission
-                            //                        // shouldShowRequestPermissionRationale will return true
+                            // shouldShowRequestPermissionRationale will return true
                             //show the dialog or snackbar saying its necessary and try again otherwise proceed with setup.
                             if (ActivityCompat.shouldShowRequestPermissionRationale(
                                     this,
@@ -225,8 +253,6 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback {
 
                                 this.finish()
 
-
-                                //proceed with logic by disabling the related features or quit the app.
                             }
                             //permission is denied (and never ask again is  checked)
                         }
@@ -239,6 +265,7 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback {
     }
 
 
+
     /**
      * Manipulates the map once available.
      * This callback is triggered when the map is ready to be used.
@@ -249,11 +276,100 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback {
      * installed Google Play services and returned to the app.
      */
     override fun onMapReady(googleMap: GoogleMap) {
-        mMap = googleMap
+        Log.d(TAG, "onMapReady()")
+        map = googleMap
 
-        // Add a marker in Sydney and move the camera
-        val sydney = LatLng(-34.0, 151.0)
-        mMap.addMarker(MarkerOptions().position(sydney).title("Marker in Sydney"))
-        mMap.moveCamera(CameraUpdateFactory.newLatLng(sydney))
+
+    }
+
+    private fun initGmaps() {
+        Log.d(TAG, "initGmaps()")
+        // Obtain the SupportMapFragment and get notified when the map is ready to be used.
+        mapFragment = supportFragmentManager.findFragmentById(R.id.map) as SupportMapFragment?
+        mapFragment!!.getMapAsync(this)
+
+        initFindUser = true
+    }
+
+    private fun createGoogleApi() {
+        Log.d(TAG, "createGoogleApi()")
+        fusedLocationClient = LocationServices.getFusedLocationProviderClient(this)
+    }
+
+
+    override fun onStatusChanged(provider: String?, status: Int, extras: Bundle?) {
+        TODO("not implemented") //To change body of created functions use File | Settings | File Templates.
+    }
+
+    override fun onProviderEnabled(provider: String?) {
+        TODO("not implemented") //To change body of created functions use File | Settings | File Templates.
+    }
+
+    override fun onProviderDisabled(provider: String?) {
+        TODO("not implemented") //To change body of created functions use File | Settings | File Templates.
+    }
+
+    //Define the listener
+    override fun onLocationChanged(location: Location) {
+        Log.d(TAG, "onLocationChanged() [$location ]")
+
+
+        // If lastLocation is initialized check to see if it is still up-to-date.
+        // If not, update it and redraw marker.
+        if (lastLocation != null) {
+            if (lastLocation != location) {
+                if (locationMarker != null)
+                {
+                    locationMarker!!.remove()
+                }
+
+                val latitude = location.latitude
+                val longitude = location.longitude
+                val latLng = LatLng(latitude, longitude)
+
+                // Use Google's Geocoder api to find out information about the coordinates.
+                val geocoder = Geocoder(applicationContext)
+
+                val addressList: List<Address> = geocoder.getFromLocation(latitude, longitude, 1)
+
+                var addressInfo = addressList[0].locality + " " + addressList[0].countryName
+
+                // Create marker with location of user and address information.
+                locationMarker = map.addMarker(MarkerOptions().position(latLng).title(addressInfo))
+
+                // On first run, animate to user's location marker.
+                if (initFindUser)
+                {
+                    initFindUser = false
+                    centerCameraOnLocation(locationMarker!!.position);
+                }
+            }
+        }
+        else
+        {
+            lastLocation = location
+            val latitude = location.latitude
+            val longitude = location.longitude
+            val latLng = LatLng(latitude, longitude)
+
+            val geocoder = Geocoder(applicationContext)
+
+            val addressList: List<Address> = geocoder.getFromLocation(latitude, longitude, 1)
+
+            var addressInfo = addressList[0].locality + " " + addressList[0].countryName
+
+            locationMarker = map.addMarker(MarkerOptions().position(latLng).title(addressInfo))
+
+            if (initFindUser)
+            {
+                initFindUser = false
+                centerCameraOnLocation(locationMarker!!.position);
+            }
+        }
+    }
+    private fun centerCameraOnLocation(position: LatLng) {
+        Log.i(TAG, "centerCameraOnLocation()")
+
+        map.animateCamera(CameraUpdateFactory.newLatLngZoom(position, 15.0f))
     }
 }
