@@ -3,6 +3,7 @@ package com.dreams.kotlingeofencedemo
 import android.Manifest
 import android.annotation.SuppressLint
 import android.content.Context
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.location.*
 import android.os.Build
@@ -16,6 +17,8 @@ import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import com.google.android.gms.location.FusedLocationProviderClient
+import com.google.android.gms.location.Geofence
+import com.google.android.gms.location.GeofencingRequest
 import com.google.android.gms.location.LocationServices
 import com.google.android.gms.maps.CameraUpdateFactory
 import com.google.android.gms.maps.GoogleMap
@@ -424,6 +427,7 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback, LocationListener,
 
         when (item.itemId) {
             R.id.geofence -> {
+                startGeofence()
                 return true
             }
             R.id.clear -> {
@@ -438,4 +442,61 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback, LocationListener,
         }
         return super.onOptionsItemSelected(item)
     }
+    companion object {
+
+        private val TAG = MapsActivity::class.java.simpleName
+        private val GEOFENCE_RADIUS = 300.0f // Meters
+
+        private val NOTIFICATION_MESSAGE = "NOTIFICATION MESSAGE"
+
+        fun makeNotificationIntent(context: Context, message: String): Intent {
+
+            val intent = Intent(context, MapsActivity::class.java)
+            intent.putExtra(NOTIFICATION_MESSAGE, message)
+            return intent
+
+        }
+
+        private val GEOFENCE_REQ_ID = "Tc2r Geofence"
+        private val GEO_DURATION = (60 * 60 * 1000).toLong()
+    }
+    // Add the created GeofenceRequest to the device's monitoring list.
+    private fun addGeofence(geofencingRequest: GeofencingRequest) {
+        Log.d(TAG, "addGeofence")
+        TODO(Add Geofence code here.)
+
+    }
+    // Start Geofence creation process
+    private fun startGeofence() {
+        Log.d(TAG, "startGeofence()")
+        if (geoFenceMarker != null) {
+            val geofence = createGeoFence(geoFenceMarker!!.position, GEOFENCE_RADIUS)
+            val geofencingRequest = createGeofenceRequest(geofence)
+            addGeofence(geofencingRequest)
+        } else {
+            Log.e(TAG, "Geofence Marker is Null")
+        }
+    }
+
+    // Create a Geofence.
+    private fun createGeoFence(latLng: LatLng, radius: Float): Geofence {
+        Log.d(TAG, "createGeofence()")
+        return Geofence.Builder().setRequestId(GEOFENCE_REQ_ID)
+            .setCircularRegion(latLng.latitude, latLng.longitude, radius)
+            .setExpirationDuration(GEO_DURATION).setTransitionTypes(
+                GeofencingRequest.INITIAL_TRIGGER_ENTER or GeofencingRequest.INITIAL_TRIGGER_EXIT
+            )
+            .build()
+    }
+
+    // Create a Geofence Request
+    private fun createGeofenceRequest(geofence: Geofence): GeofencingRequest {
+
+        Log.d(TAG, "createGeofenceRequest()")
+        return GeofencingRequest.Builder()
+            .setInitialTrigger(GeofencingRequest.INITIAL_TRIGGER_ENTER).addGeofence(geofence)
+            .build()
+    }
+
+
 }
