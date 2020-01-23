@@ -74,8 +74,6 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback, LocationListener,
 
         // Obtain the SupportMapFragment
         initGmaps()
-
-
     }
 
     // PERMISSION MANAGEMENT
