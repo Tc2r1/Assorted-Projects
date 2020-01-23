@@ -441,12 +441,23 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback, LocationListener,
                 return true
             }
             R.id.clear -> {
+                clearGeofence()
                 return true
             }
             R.id.centerlocation -> {
 
-                TODO("Add Conditional to make sure location is in use.")
-                centerCameraOnLocation(LatLng(lastLocation!!.latitude, lastLocation!!.longitude))
+                if(lastLocation == null)
+                {
+                    Toast.makeText(this,"Please Wait Until Your Location is Found.", Toast.LENGTH_LONG).show()
+                }
+                else {
+                    centerCameraOnLocation(
+                        LatLng(
+                            lastLocation!!.latitude,
+                            lastLocation!!.longitude
+                        )
+                    )
+                }
                 return true
             }
         }
@@ -549,6 +560,28 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback, LocationListener,
             .fillColor(Color.argb(100, 150, 150, 150))
             .radius(GEOFENCE_RADIUS.toDouble())
         geoFenceLimits = map.addCircle(circleOptions)
+    }
+
+    // Clear Geofence
+    private fun clearGeofence()
+    {
+        Log.d(TAG, "clearGeofence()")
+
+        geofencingClient = LocationServices.getGeofencingClient(this)
+        geofencingClient!!.removeGeofences(createGeofencePendingIntent())
+            .addOnSuccessListener { removeGeofenceDraw() }
+    }
+
+    // Remove on screen draw of Geofence.
+    private fun removeGeofenceDraw()
+    {
+        Log.d(TAG, "removeGeofenceDraw()")
+        if (geoFenceMarker != null) {
+            geoFenceMarker!!.remove()
+        }
+        if (geoFenceLimits != null) {
+            geoFenceLimits!!.remove()
+        }
     }
 
     // Create a Geofence Request
