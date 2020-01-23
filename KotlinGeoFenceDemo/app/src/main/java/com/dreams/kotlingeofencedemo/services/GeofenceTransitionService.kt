@@ -4,14 +4,21 @@ import android.app.*
 import android.content.Context
 import android.content.Intent
 import android.graphics.Color
+import android.location.Address
+import android.location.Geocoder
+import android.provider.Settings
 import android.text.TextUtils
 import android.util.Log
 import androidx.core.app.NotificationCompat
 import com.dreams.kotlingeofencedemo.MapsActivity
 import com.dreams.kotlingeofencedemo.R
+import com.dreams.kotlingeofencedemo.controllers.GeoEventController
+import com.dreams.kotlingeofencedemo.domain.GeoEvent
+import com.dreams.kotlingeofencedemo.services.mapservices.GeoEventServiceMapImpl
 import com.google.android.gms.location.Geofence
 import com.google.android.gms.location.GeofenceStatusCodes
 import com.google.android.gms.location.GeofencingEvent
+import java.sql.Timestamp
 import java.util.*
 
 /**
@@ -21,7 +28,14 @@ import java.util.*
  * Description:
  */
 class GeofenceTransitionService : IntentService(TAG) {
+
+    // api functions.
+    private var geoEventService = GeoEventServiceMapImpl()
+    private var geoEventController = GeoEventController()
+
     override fun onHandleIntent(intent: Intent?) {
+        // Initialize geoEvent controller
+        geoEventController.setGeoEventService(geoEventService)
 
         val geofencingEvent = GeofencingEvent.fromIntent(intent)
 
@@ -45,7 +59,55 @@ class GeofenceTransitionService : IntentService(TAG) {
 
             // Send notification details as a String.
             sendNotification(geofenceTransitionDetails)
+
+            // Mock Api call to post data.
+            saveGeoFencingEvent(geofencingEvent)
         }
+    }
+
+    private fun saveGeoFencingEvent(geofencingEvent: GeofencingEvent) {
+        Log.d(TAG, "saveGeoFencingEvent")
+        var eventTriggered = ""
+        var eventId = ""
+        var locality = ""
+        var timeStamp = ""
+        var userName = ""
+
+        // Get Event Triggered
+        if(geofencingEvent.geofenceTransition == Geofence.GEOFENCE_TRANSITION_ENTER){
+            eventTriggered = "Entering"
+        }
+        if(geofencingEvent.geofenceTransition == Geofence.GEOFENCE_TRANSITION_EXIT){
+            eventTriggered = "Entering"
+        }
+
+        // Get Locality:
+        var lat = geofencingEvent.triggeringLocation.latitude;
+        var lon = geofencingEvent.triggeringLocation.longitude;
+
+        // Use Google's Geocoder api to find out information about the coordinates.
+        val geocoder = Geocoder(applicationContext)
+        val addressList: List<Address> = geocoder.getFromLocation(lat, lon, 1)
+        locality = addressList[0].getAddressLine(1) + " " + addressList[0].countryName
+
+        // Get Random event Id.
+        eventId = System.identityHashCode(geofencingEvent).toString()
+
+        // Get Timestamp: // Using outdated java.sql.Timestamp to support all apis at once.
+        timeStamp = Timestamp(System.currentTimeMillis()).toString()
+
+        // Get the userName/id or what not.
+
+        userName = Settings.Secure.getString(getContentResolver(),
+        Settings.Secure.ANDROID_ID);
+
+        val tempGeoEvent = GeoEvent()
+        tempGeoEvent.eventTriggered = eventTriggered
+        tempGeoEvent.eventId = eventId
+        tempGeoEvent.locality = locality
+        tempGeoEvent.timeStamp = timeStamp
+        tempGeoEvent.userName = userName
+        geoEventController.saveOrUpdate(tempGeoEvent)
     }
 
     // Gets the geofenceTransitionDetails from list of triggering events.
