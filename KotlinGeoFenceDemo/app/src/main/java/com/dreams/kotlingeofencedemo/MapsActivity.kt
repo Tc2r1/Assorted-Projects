@@ -2,10 +2,13 @@ package com.dreams.kotlingeofencedemo
 
 import android.Manifest
 import android.annotation.SuppressLint
+import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.graphics.Color
 import android.location.*
+import android.location.LocationListener
 import android.os.Build
 import android.os.Bundle
 import android.util.Log
@@ -16,29 +19,29 @@ import androidx.annotation.RequiresApi
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
-import com.google.android.gms.location.FusedLocationProviderClient
-import com.google.android.gms.location.Geofence
-import com.google.android.gms.location.GeofencingRequest
-import com.google.android.gms.location.LocationServices
+import com.dreams.kotlingeofencedemo.services.GeofenceTransitionService
+import com.google.android.gms.location.*
 import com.google.android.gms.maps.CameraUpdateFactory
 import com.google.android.gms.maps.GoogleMap
 import com.google.android.gms.maps.OnMapReadyCallback
 import com.google.android.gms.maps.SupportMapFragment
-import com.google.android.gms.maps.model.BitmapDescriptorFactory
-import com.google.android.gms.maps.model.LatLng
-import com.google.android.gms.maps.model.Marker
-import com.google.android.gms.maps.model.MarkerOptions
+import com.google.android.gms.maps.model.*
+import com.google.android.gms.tasks.OnFailureListener
+import com.google.android.gms.tasks.OnSuccessListener
 
 class MapsActivity : AppCompatActivity(), OnMapReadyCallback, LocationListener,
-    GoogleMap.OnMapClickListener, GoogleMap.OnMarkerClickListener {
+    GoogleMap.OnMapClickListener, GoogleMap.OnMarkerClickListener, OnSuccessListener<Void>,
+    OnFailureListener {
 
     private val TAG = "MapsActivity"
     private val REQUEST_PERMISSIONS_ID_CODE = 123
+    private val GEOFENCE_REQ_CODE = 10
     private var mapFragment: SupportMapFragment? = null
 
     private lateinit var map: GoogleMap
+    private var geofencingClient: GeofencingClient? = null
+    private val geofencePendingIntent: PendingIntent? = null
     private var geoFenceMarker: Marker? = null
-
 
     private var locationManager: LocationManager? = null
     private lateinit var fusedLocationClient: FusedLocationProviderClient
@@ -47,9 +50,18 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback, LocationListener,
     private var locationMarker: Marker? = null
     private var initFindUser: Boolean = true
 
+
+    // Draw Geofence circle on GoogleMap
+    private var geoFenceLimits: Circle? = null
+
+    private val KEY_GEOFENCE_LAT = "GEOFENCE LATITUDE"
+    private val KEY_GEOFENCE_LON = "GEOFENCE LONGITUDE"
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_maps)
+
+        createGoogleApi()
 
         // Get a Ref to Location Manager.
         locationManager = getSystemService(Context.LOCATION_SERVICE) as LocationManager
@@ -57,20 +69,14 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback, LocationListener,
         // Check for and request required permissions.
         if(setPermissions()){
             // Start Requesting Updates.
-            startLocationUpdates()
+            getLastKnownLocation()
         }
 
         // Obtain the SupportMapFragment
         initGmaps()
 
-        createGoogleApi()
-    }
 
-    @SuppressLint("MissingPermission")
-    private fun startLocationUpdates(){
-        locationManager?.requestLocationUpdates(LocationManager.GPS_PROVIDER, 3000, 0.0f, this)
     }
-
 
     // PERMISSION MANAGEMENT
     private fun setPermissions(): Boolean {
@@ -176,7 +182,7 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback, LocationListener,
                             Log.d(TAG, "Background and Fine location services permission granted")
 
                             // Start Requesting Updates.
-                            startLocationUpdates()
+                            getLastKnownLocation()
                         } else {
                             Log.d(TAG, "Some permissions are not granted ask again ")
                             //permission is denied (this is the first time, when "never ask again" is not checked) so ask again explaining the usage of permission
@@ -225,7 +231,7 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback, LocationListener,
                             Log.d(TAG, "Fine location services permission granted")
 
                             // Start Requesting Updates.
-                            startLocationUpdates()
+                            getLastKnownLocation()
                         } else {
                             Log.d(TAG, "Some permissions are not granted ask again ")
                             //permission is denied (this is the first time, when "never ask again" is not checked) so ask again explaining the usage of permission
@@ -273,7 +279,6 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback, LocationListener,
     }
 
 
-
     private fun initGmaps() {
         Log.d(TAG, "initGmaps()")
         // Obtain the SupportMapFragment and get notified when the map is ready to be used.
@@ -286,6 +291,69 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback, LocationListener,
     private fun createGoogleApi() {
         Log.d(TAG, "createGoogleApi()")
         fusedLocationClient = LocationServices.getFusedLocationProviderClient(this)
+    }
+
+
+    @SuppressLint("MissingPermission")
+    private fun startLocationUpdates(){
+
+        locationManager?.requestLocationUpdates(LocationManager.GPS_PROVIDER, 3000, 0.0f, this)
+
+    }
+
+    // Get Last Known Location
+    private fun getLastKnownLocation() {
+
+        Log.d(TAG, "getLastKnownLocation()")
+
+        fusedLocationClient.lastLocation
+            .addOnSuccessListener(this) { location ->
+                // Got last known location.
+                if (location != null) {
+                    // Logic to handle location object
+                    Log.i(
+                        TAG,
+                        "LastKnown location. "
+                                + "Long: "
+                                + location.longitude
+                                + " | Lat: "
+                                + location.latitude
+                    )
+                    lastLocation = location
+
+                    writeLastLocation()
+                    startLocationUpdates()
+                } else {
+                    Log.w(TAG, "No Location Found Yet")
+                    startLocationUpdates()
+                }
+            }
+    }
+
+    private fun writeLastLocation() {
+        Log.i(TAG, "writeLastLocation()")
+        writeActualLocation(lastLocation)
+
+    }
+
+    private fun writeActualLocation(lastLocation: Location?) {
+        Log.i(TAG, "writeActualLocation()")
+        markerLocation(LatLng(lastLocation!!.latitude, lastLocation.longitude))
+        // TODO("Add Textview to record lat and long")
+    }
+
+    private fun markerLocation(latLng: LatLng) {
+
+        Log.i(TAG, "markerLocation [ $latLng]")
+
+        // Define Marker Options
+        val title = latLng.latitude.toString() + ", " + latLng.longitude
+        val markerOptions = MarkerOptions().position(latLng).title(title)
+        if (locationMarker != null) {
+            locationMarker!!.remove()
+        }
+        locationMarker = map.addMarker(markerOptions)
+        Log.wtf(TAG, "markerLocation [ $latLng]")
     }
 
     /**
@@ -302,6 +370,7 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback, LocationListener,
         map = googleMap
         map.setOnMapClickListener(this)
         map.setOnMarkerClickListener(this)
+        recoverGeofenceMarker()
 
     }
 
@@ -431,12 +500,23 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback, LocationListener,
                 return true
             }
             R.id.clear -> {
+                clearGeofence()
                 return true
             }
             R.id.centerlocation -> {
 
-                TODO("Add Conditional to make sure location is in use.")
-                centerCameraOnLocation(LatLng(lastLocation!!.latitude, lastLocation!!.longitude))
+                if(lastLocation == null)
+                {
+                    Toast.makeText(this,"Please Wait Until Your Location is Found.", Toast.LENGTH_LONG).show()
+                }
+                else {
+                    centerCameraOnLocation(
+                        LatLng(
+                            lastLocation!!.latitude,
+                            lastLocation!!.longitude
+                        )
+                    )
+                }
                 return true
             }
         }
@@ -463,9 +543,27 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback, LocationListener,
     // Add the created GeofenceRequest to the device's monitoring list.
     private fun addGeofence(geofencingRequest: GeofencingRequest) {
         Log.d(TAG, "addGeofence")
-        TODO(Add Geofence code here.)
+        if (setPermissions()) {
+            geofencingClient = LocationServices.getGeofencingClient(this)
+            geofencingClient!!.addGeofences(geofencingRequest, createGeofencePendingIntent())
+                .addOnSuccessListener(this).addOnFailureListener(this)
+        }
 
     }
+
+    // Add Geofence On Success Listener
+    override fun onSuccess(p0: Void?) {
+        Log.d(TAG, "Add Geofence onSuccessListener")
+        saveGeofence()
+        drawGeofence()
+    }
+
+    // Add Geofence On Failure Listener
+    override fun onFailure(e: Exception) {
+        Log.d(TAG, "Add Geofence onFailureListener")
+        // Log Failure.
+    }
+
     // Start Geofence creation process
     private fun startGeofence() {
         Log.d(TAG, "startGeofence()")
@@ -489,6 +587,81 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback, LocationListener,
             .build()
     }
 
+    // Saving GeoFence Marker with prefs mng
+    private fun saveGeofence() {
+        Log.d(TAG, "saveGeofence()")
+
+        // Saving GeoFence marker with prefs mng
+        val sharedPreferences = getPreferences(Context.MODE_PRIVATE)
+        val editor = sharedPreferences.edit()
+
+        editor.putLong(
+            KEY_GEOFENCE_LAT,
+            java.lang.Double.doubleToRawLongBits(geoFenceMarker!!.position.latitude)
+        )
+        editor.putLong(
+            KEY_GEOFENCE_LON,
+            java.lang.Double.doubleToRawLongBits(geoFenceMarker!!.position.longitude)
+        )
+        editor.apply()
+    }
+
+    // Recovering last Geofence Marker
+    private fun recoverGeofenceMarker() {
+        Log.d(TAG, "recoverGeofenceMarker()")
+
+        val sharedPreferences = getPreferences(Context.MODE_PRIVATE)
+
+        if (sharedPreferences.contains(KEY_GEOFENCE_LAT) && sharedPreferences
+                .contains(KEY_GEOFENCE_LON)
+        ) {
+            val lat =
+                java.lang.Double.longBitsToDouble(sharedPreferences.getLong(KEY_GEOFENCE_LAT, -1))
+            val lon =
+                java.lang.Double.longBitsToDouble(sharedPreferences.getLong(KEY_GEOFENCE_LON, -1))
+            val latLng = LatLng(lat, lon)
+            markerForGeofence(latLng)
+            drawGeofence()
+        }
+    }
+
+    // Use CircleOptions to draw a circle to represent the limts of the Geofence.
+    private fun drawGeofence() {
+        Log.d(TAG, "drawGeofence()")
+
+        if (geoFenceLimits != null) {
+            geoFenceLimits!!.remove()
+        }
+
+        val circleOptions = CircleOptions().center(geoFenceMarker!!.position)
+            .strokeColor(Color.argb(50, 70, 70, 70))
+            .fillColor(Color.argb(100, 150, 150, 150))
+            .radius(GEOFENCE_RADIUS.toDouble())
+        geoFenceLimits = map.addCircle(circleOptions)
+    }
+
+    // Clear Geofence
+    private fun clearGeofence()
+    {
+        Log.d(TAG, "clearGeofence()")
+
+        geofencingClient = LocationServices.getGeofencingClient(this)
+        geofencingClient!!.removeGeofences(createGeofencePendingIntent())
+            .addOnSuccessListener { removeGeofenceDraw() }
+    }
+
+    // Remove on screen draw of Geofence.
+    private fun removeGeofenceDraw()
+    {
+        Log.d(TAG, "removeGeofenceDraw()")
+        if (geoFenceMarker != null) {
+            geoFenceMarker!!.remove()
+        }
+        if (geoFenceLimits != null) {
+            geoFenceLimits!!.remove()
+        }
+    }
+
     // Create a Geofence Request
     private fun createGeofenceRequest(geofence: Geofence): GeofencingRequest {
 
@@ -496,6 +669,20 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback, LocationListener,
         return GeofencingRequest.Builder()
             .setInitialTrigger(GeofencingRequest.INITIAL_TRIGGER_ENTER).addGeofence(geofence)
             .build()
+    }
+
+    // Creates a Geofence Pending Intent if one doesn't exist.
+    private fun createGeofencePendingIntent(): PendingIntent {
+
+        Log.d(TAG, "createGeofencePendingIntent()")
+        if (geofencePendingIntent != null) {
+            return geofencePendingIntent
+        }
+
+        val intent = Intent(this.applicationContext, GeofenceTransitionService::class.java)
+        return PendingIntent
+            .getService(this, GEOFENCE_REQ_CODE, intent, PendingIntent.FLAG_UPDATE_CURRENT)
+
     }
 
 
