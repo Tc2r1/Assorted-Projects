@@ -1,4 +1,4 @@
-package com.example.api_mock.domain
+package com.dreams.kotlingeofencedemo.domain
 
 /**
  * Created by Tc2r on 1/23/2020.

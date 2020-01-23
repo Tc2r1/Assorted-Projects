@@ -1,4 +1,4 @@
-package com.example.api_mock.domain
+package com.dreams.kotlingeofencedemo.domain
 
 import androidx.annotation.IdRes
 
