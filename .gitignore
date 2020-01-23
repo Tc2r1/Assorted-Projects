@@ -97,3 +97,7 @@ vcs.xml
 **/*lint/outputs/
 **/*lint/tmp/
 # lint/reports/
+
+# dont ignore these files
+
+!**/*/preview/*
