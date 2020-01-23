@@ -463,7 +463,7 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback, LocationListener,
     // Add the created GeofenceRequest to the device's monitoring list.
     private fun addGeofence(geofencingRequest: GeofencingRequest) {
         Log.d(TAG, "addGeofence")
-        TODO(Add Geofence code here.)
+        TODO("Add Geofence code here.")
 
     }
     // Start Geofence creation process
