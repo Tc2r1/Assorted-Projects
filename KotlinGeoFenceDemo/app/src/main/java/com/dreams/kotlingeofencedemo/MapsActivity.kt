@@ -2,10 +2,12 @@ package com.dreams.kotlingeofencedemo
 
 import android.Manifest
 import android.annotation.SuppressLint
+import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.location.*
+import android.location.LocationListener
 import android.os.Build
 import android.os.Bundle
 import android.util.Log
@@ -16,10 +18,8 @@ import androidx.annotation.RequiresApi
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
-import com.google.android.gms.location.FusedLocationProviderClient
-import com.google.android.gms.location.Geofence
-import com.google.android.gms.location.GeofencingRequest
-import com.google.android.gms.location.LocationServices
+import com.dreams.kotlingeofencedemo.services.GeofenceTransitionService
+import com.google.android.gms.location.*
 import com.google.android.gms.maps.CameraUpdateFactory
 import com.google.android.gms.maps.GoogleMap
 import com.google.android.gms.maps.OnMapReadyCallback
@@ -28,17 +28,22 @@ import com.google.android.gms.maps.model.BitmapDescriptorFactory
 import com.google.android.gms.maps.model.LatLng
 import com.google.android.gms.maps.model.Marker
 import com.google.android.gms.maps.model.MarkerOptions
+import com.google.android.gms.tasks.OnFailureListener
+import com.google.android.gms.tasks.OnSuccessListener
 
 class MapsActivity : AppCompatActivity(), OnMapReadyCallback, LocationListener,
-    GoogleMap.OnMapClickListener, GoogleMap.OnMarkerClickListener {
+    GoogleMap.OnMapClickListener, GoogleMap.OnMarkerClickListener, OnSuccessListener<in Void>,
+    OnFailureListener {
 
     private val TAG = "MapsActivity"
     private val REQUEST_PERMISSIONS_ID_CODE = 123
+    private val GEOFENCE_REQ_CODE = 10
     private var mapFragment: SupportMapFragment? = null
 
     private lateinit var map: GoogleMap
+    private var geofencingClient: GeofencingClient? = null
+    private val geofencePendingIntent: PendingIntent? = null
     private var geoFenceMarker: Marker? = null
-
 
     private var locationManager: LocationManager? = null
     private lateinit var fusedLocationClient: FusedLocationProviderClient
@@ -463,9 +468,27 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback, LocationListener,
     // Add the created GeofenceRequest to the device's monitoring list.
     private fun addGeofence(geofencingRequest: GeofencingRequest) {
         Log.d(TAG, "addGeofence")
-        TODO("Add Geofence code here.")
+        if (setPermissions()) {
+            geofencingClient = LocationServices.getGeofencingClient(this)
+            geofencingClient!!.addGeofences(geofencingRequest, createGeofencePendingIntent())
+                .addOnSuccessListener(this).addOnFailureListener(this)
+        }
 
     }
+
+    // Add Geofence On Success Listener
+    override fun onSuccess(p0: Void?) {
+        Log.d(TAG, "Add Geofence onSuccessListener")
+        saveGeofence()
+        drawGeofence()
+    }
+
+    // Add Geofence On Failure Listener
+    override fun onFailure(e: Exception) {
+        Log.d(TAG, "Add Geofence onFailureListener")
+        // Log Failure.
+    }
+
     // Start Geofence creation process
     private fun startGeofence() {
         Log.d(TAG, "startGeofence()")
@@ -496,6 +519,20 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback, LocationListener,
         return GeofencingRequest.Builder()
             .setInitialTrigger(GeofencingRequest.INITIAL_TRIGGER_ENTER).addGeofence(geofence)
             .build()
+    }
+
+    // Creates a Geofence Pending Intent if one doesn't exist.
+    private fun createGeofencePendingIntent(): PendingIntent {
+
+        Log.d(TAG, "createGeofencePendingIntent()")
+        if (geofencePendingIntent != null) {
+            return geofencePendingIntent
+        }
+
+        val intent = Intent(this.applicationContext, GeofenceTransitionService::class.java)
+        return PendingIntent
+            .getService(this, GEOFENCE_REQ_CODE, intent, PendingIntent.FLAG_UPDATE_CURRENT)
+
     }
 
 

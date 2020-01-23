@@ -9,8 +9,6 @@ import android.util.Log
 import androidx.core.app.NotificationCompat
 import com.dreams.kotlingeofencedemo.MapsActivity
 import com.dreams.kotlingeofencedemo.R
-import com.example.testgeofence.MapsActivity
-import com.example.testgeofence.R
 import com.google.android.gms.location.Geofence
 import com.google.android.gms.location.GeofenceStatusCodes
 import com.google.android.gms.location.GeofencingEvent
