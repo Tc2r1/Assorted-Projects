@@ -6,6 +6,7 @@ import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.graphics.Color
 import android.location.*
 import android.location.LocationListener
 import android.os.Build
@@ -24,15 +25,12 @@ import com.google.android.gms.maps.CameraUpdateFactory
 import com.google.android.gms.maps.GoogleMap
 import com.google.android.gms.maps.OnMapReadyCallback
 import com.google.android.gms.maps.SupportMapFragment
-import com.google.android.gms.maps.model.BitmapDescriptorFactory
-import com.google.android.gms.maps.model.LatLng
-import com.google.android.gms.maps.model.Marker
-import com.google.android.gms.maps.model.MarkerOptions
+import com.google.android.gms.maps.model.*
 import com.google.android.gms.tasks.OnFailureListener
 import com.google.android.gms.tasks.OnSuccessListener
 
 class MapsActivity : AppCompatActivity(), OnMapReadyCallback, LocationListener,
-    GoogleMap.OnMapClickListener, GoogleMap.OnMarkerClickListener, OnSuccessListener<in Void>,
+    GoogleMap.OnMapClickListener, GoogleMap.OnMarkerClickListener, OnSuccessListener<Void>,
     OnFailureListener {
 
     private val TAG = "MapsActivity"
@@ -51,6 +49,13 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback, LocationListener,
     private var lastLocation: Location? = null
     private var locationMarker: Marker? = null
     private var initFindUser: Boolean = true
+
+
+    // Draw Geofence circle on GoogleMap
+    private var geoFenceLimits: Circle? = null
+
+    private val KEY_GEOFENCE_LAT = "GEOFENCE LATITUDE"
+    private val KEY_GEOFENCE_LON = "GEOFENCE LONGITUDE"
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -510,6 +515,40 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback, LocationListener,
                 GeofencingRequest.INITIAL_TRIGGER_ENTER or GeofencingRequest.INITIAL_TRIGGER_EXIT
             )
             .build()
+    }
+
+    // Saving GeoFence Marker with prefs mng
+    private fun saveGeofence() {
+        Log.d(TAG, "saveGeofence()")
+
+        // Saving GeoFence marker with prefs mng
+        val sharedPreferences = getPreferences(Context.MODE_PRIVATE)
+        val editor = sharedPreferences.edit()
+
+        editor.putLong(
+            KEY_GEOFENCE_LAT,
+            java.lang.Double.doubleToRawLongBits(geoFenceMarker!!.position.latitude)
+        )
+        editor.putLong(
+            KEY_GEOFENCE_LON,
+            java.lang.Double.doubleToRawLongBits(geoFenceMarker!!.position.longitude)
+        )
+        editor.apply()
+    }
+
+    // Use CircleOptions to draw a circle to represent the limts of the Geofence.
+    private fun drawGeofence() {
+        Log.d(TAG, "drawGeofence()")
+
+        if (geoFenceLimits != null) {
+            geoFenceLimits!!.remove()
+        }
+
+        val circleOptions = CircleOptions().center(geoFenceMarker!!.position)
+            .strokeColor(Color.argb(50, 70, 70, 70))
+            .fillColor(Color.argb(100, 150, 150, 150))
+            .radius(GEOFENCE_RADIUS.toDouble())
+        geoFenceLimits = map.addCircle(circleOptions)
     }
 
     // Create a Geofence Request
