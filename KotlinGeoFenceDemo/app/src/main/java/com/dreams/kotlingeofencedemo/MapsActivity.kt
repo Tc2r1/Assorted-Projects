@@ -61,26 +61,22 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback, LocationListener,
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_maps)
 
+        createGoogleApi()
+
         // Get a Ref to Location Manager.
         locationManager = getSystemService(Context.LOCATION_SERVICE) as LocationManager
 
         // Check for and request required permissions.
         if(setPermissions()){
             // Start Requesting Updates.
-            startLocationUpdates()
+            getLastKnownLocation()
         }
 
         // Obtain the SupportMapFragment
         initGmaps()
 
-        createGoogleApi()
-    }
 
-    @SuppressLint("MissingPermission")
-    private fun startLocationUpdates(){
-        locationManager?.requestLocationUpdates(LocationManager.GPS_PROVIDER, 3000, 0.0f, this)
     }
-
 
     // PERMISSION MANAGEMENT
     private fun setPermissions(): Boolean {
@@ -186,7 +182,7 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback, LocationListener,
                             Log.d(TAG, "Background and Fine location services permission granted")
 
                             // Start Requesting Updates.
-                            startLocationUpdates()
+                            getLastKnownLocation()
                         } else {
                             Log.d(TAG, "Some permissions are not granted ask again ")
                             //permission is denied (this is the first time, when "never ask again" is not checked) so ask again explaining the usage of permission
@@ -235,7 +231,7 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback, LocationListener,
                             Log.d(TAG, "Fine location services permission granted")
 
                             // Start Requesting Updates.
-                            startLocationUpdates()
+                            getLastKnownLocation()
                         } else {
                             Log.d(TAG, "Some permissions are not granted ask again ")
                             //permission is denied (this is the first time, when "never ask again" is not checked) so ask again explaining the usage of permission
@@ -283,7 +279,6 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback, LocationListener,
     }
 
 
-
     private fun initGmaps() {
         Log.d(TAG, "initGmaps()")
         // Obtain the SupportMapFragment and get notified when the map is ready to be used.
@@ -296,6 +291,69 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback, LocationListener,
     private fun createGoogleApi() {
         Log.d(TAG, "createGoogleApi()")
         fusedLocationClient = LocationServices.getFusedLocationProviderClient(this)
+    }
+
+
+    @SuppressLint("MissingPermission")
+    private fun startLocationUpdates(){
+
+        locationManager?.requestLocationUpdates(LocationManager.GPS_PROVIDER, 3000, 0.0f, this)
+
+    }
+
+    // Get Last Known Location
+    private fun getLastKnownLocation() {
+
+        Log.d(TAG, "getLastKnownLocation()")
+
+        fusedLocationClient.lastLocation
+            .addOnSuccessListener(this) { location ->
+                // Got last known location.
+                if (location != null) {
+                    // Logic to handle location object
+                    Log.i(
+                        TAG,
+                        "LastKnown location. "
+                                + "Long: "
+                                + location.longitude
+                                + " | Lat: "
+                                + location.latitude
+                    )
+                    lastLocation = location
+
+                    writeLastLocation()
+                    startLocationUpdates()
+                } else {
+                    Log.w(TAG, "No Location Found Yet")
+                    startLocationUpdates()
+                }
+            }
+    }
+
+    private fun writeLastLocation() {
+        Log.i(TAG, "writeLastLocation()")
+        writeActualLocation(lastLocation)
+
+    }
+
+    private fun writeActualLocation(lastLocation: Location?) {
+        Log.i(TAG, "writeActualLocation()")
+        markerLocation(LatLng(lastLocation!!.latitude, lastLocation.longitude))
+        // TODO("Add Textview to record lat and long")
+    }
+
+    private fun markerLocation(latLng: LatLng) {
+
+        Log.i(TAG, "markerLocation [ $latLng]")
+
+        // Define Marker Options
+        val title = latLng.latitude.toString() + ", " + latLng.longitude
+        val markerOptions = MarkerOptions().position(latLng).title(title)
+        if (locationMarker != null) {
+            locationMarker!!.remove()
+        }
+        locationMarker = map.addMarker(markerOptions)
+        Log.wtf(TAG, "markerLocation [ $latLng]")
     }
 
     /**
@@ -312,6 +370,7 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback, LocationListener,
         map = googleMap
         map.setOnMapClickListener(this)
         map.setOnMarkerClickListener(this)
+        recoverGeofenceMarker()
 
     }
 
@@ -545,6 +604,25 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback, LocationListener,
             java.lang.Double.doubleToRawLongBits(geoFenceMarker!!.position.longitude)
         )
         editor.apply()
+    }
+
+    // Recovering last Geofence Marker
+    private fun recoverGeofenceMarker() {
+        Log.d(TAG, "recoverGeofenceMarker()")
+
+        val sharedPreferences = getPreferences(Context.MODE_PRIVATE)
+
+        if (sharedPreferences.contains(KEY_GEOFENCE_LAT) && sharedPreferences
+                .contains(KEY_GEOFENCE_LON)
+        ) {
+            val lat =
+                java.lang.Double.longBitsToDouble(sharedPreferences.getLong(KEY_GEOFENCE_LAT, -1))
+            val lon =
+                java.lang.Double.longBitsToDouble(sharedPreferences.getLong(KEY_GEOFENCE_LON, -1))
+            val latLng = LatLng(lat, lon)
+            markerForGeofence(latLng)
+            drawGeofence()
+        }
     }
 
     // Use CircleOptions to draw a circle to represent the limts of the Geofence.
