@@ -8,6 +8,7 @@ import android.text.TextUtils
 import android.util.Log
 import androidx.core.app.NotificationCompat
 import com.dreams.kotlingeofencedemo.MapsActivity
+import com.dreams.kotlingeofencedemo.R
 import com.example.testgeofence.MapsActivity
 import com.example.testgeofence.R
 import com.google.android.gms.location.Geofence
@@ -53,6 +54,7 @@ class GeofenceTransitionService : IntentService(TAG) {
     private fun getGeofenceTransitionDetails(geoFenceTransition: Int,
                                              triggeringGeofences: List<Geofence>): String
     {
+        Log.wtf(TAG, "getGeofenceTransitionDetails")
         // get the ID of each geofence Triggered
         val triggeringGeofencesList = ArrayList<String>()
         for (geofence in triggeringGeofences) {
@@ -79,8 +81,10 @@ class GeofenceTransitionService : IntentService(TAG) {
         val stackBuilder = TaskStackBuilder.create(this)
         stackBuilder.addParentStack(MapsActivity::class.java)
         stackBuilder.addNextIntent(notificationIntent)
-        val notoficationPendingIntent = stackBuilder.getPendingIntent(0,
-            PendingIntent.FLAG_UPDATE_CURRENT)
+        val notoficationPendingIntent = stackBuilder.getPendingIntent(
+            0,
+            PendingIntent.FLAG_UPDATE_CURRENT
+        )
 
         // Creating and sending Notification
         val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE)
@@ -102,14 +106,33 @@ class GeofenceTransitionService : IntentService(TAG) {
             mChannel.setShowBadge(false)
             notificationManager.createNotificationChannel(mChannel)
         }
-        val notificationBuilder = NotificationCompat.Builder(this,
-            CHANNEL_ID)
+        val notificationBuilder = NotificationCompat.Builder(
+            this,
+            CHANNEL_ID
+        )
 
-        TODO("notify Manager. Create a notification")
-        //notificationManager.notify(GEOFENCE_NOTIFICATION_ID,)
-
+        notificationManager.notify(
+            GEOFENCE_NOTIFICATION_ID,
+            createNotification(
+                message, notificationBuilder,
+                notoficationPendingIntent
+            )
+        )
     }
 
+    // Create Notification.
+    private fun createNotification(message: String,
+                                   notificationBuilder: NotificationCompat.Builder,
+                                   notoficationPendingIntent: PendingIntent): Notification
+    {
+        Log.wtf(TAG, "createNotification: $message")
+        notificationBuilder.setSmallIcon(R.drawable.ic_launcher_background).setContentTitle(message)
+            .setContentText("Geofence Notification!")
+            .setContentIntent(notoficationPendingIntent).setDefaults(
+                Notification.DEFAULT_LIGHTS or Notification.DEFAULT_VIBRATE or Notification.DEFAULT_SOUND)
+            .setAutoCancel(true)
+        return notificationBuilder.build()
+    }
 
     companion object {
         // Code Written By N. White
