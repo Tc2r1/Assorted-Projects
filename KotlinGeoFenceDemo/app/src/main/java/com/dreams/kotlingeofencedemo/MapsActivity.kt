@@ -8,6 +8,8 @@ import android.location.*
 import android.os.Build
 import android.os.Bundle
 import android.util.Log
+import android.view.Menu
+import android.view.MenuItem
 import android.widget.Toast
 import androidx.annotation.RequiresApi
 import androidx.appcompat.app.AlertDialog
@@ -408,5 +410,32 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback, LocationListener,
         Log.i(TAG, "centerCameraOnLocation()")
 
         map.animateCamera(CameraUpdateFactory.newLatLngZoom(position, 15.0f))
+    }
+
+
+    override fun onCreateOptionsMenu(menu: Menu): Boolean {
+
+        val menuInflater = menuInflater
+        menuInflater.inflate(R.menu.main_menu, menu)
+        return true
+    }
+
+    override fun onOptionsItemSelected(item: MenuItem): Boolean {
+
+        when (item.itemId) {
+            R.id.geofence -> {
+                return true
+            }
+            R.id.clear -> {
+                return true
+            }
+            R.id.centerlocation -> {
+
+                TODO("Add Conditional to make sure location is in use.")
+                centerCameraOnLocation(LatLng(lastLocation!!.latitude, lastLocation!!.longitude))
+                return true
+            }
+        }
+        return super.onOptionsItemSelected(item)
     }
 }
