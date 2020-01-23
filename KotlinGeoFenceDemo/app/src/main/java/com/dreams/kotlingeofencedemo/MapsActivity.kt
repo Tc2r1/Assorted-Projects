@@ -19,17 +19,20 @@ import com.google.android.gms.maps.CameraUpdateFactory
 import com.google.android.gms.maps.GoogleMap
 import com.google.android.gms.maps.OnMapReadyCallback
 import com.google.android.gms.maps.SupportMapFragment
+import com.google.android.gms.maps.model.BitmapDescriptorFactory
 import com.google.android.gms.maps.model.LatLng
 import com.google.android.gms.maps.model.Marker
 import com.google.android.gms.maps.model.MarkerOptions
 
-class MapsActivity : AppCompatActivity(), OnMapReadyCallback, LocationListener {
+class MapsActivity : AppCompatActivity(), OnMapReadyCallback, LocationListener,
+    GoogleMap.OnMapClickListener, GoogleMap.OnMarkerClickListener {
 
     private val TAG = "MapsActivity"
     private val REQUEST_PERMISSIONS_ID_CODE = 123
     private var mapFragment: SupportMapFragment? = null
 
     private lateinit var map: GoogleMap
+    private var geoFenceMarker: Marker? = null
 
 
     private var locationManager: LocationManager? = null
@@ -266,22 +269,6 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback, LocationListener {
 
 
 
-    /**
-     * Manipulates the map once available.
-     * This callback is triggered when the map is ready to be used.
-     * This is where we can add markers or lines, add listeners or move the camera. In this case,
-     * we just add a marker near Sydney, Australia.
-     * If Google Play services is not installed on the device, the user will be prompted to install
-     * it inside the SupportMapFragment. This method will only be triggered once the user has
-     * installed Google Play services and returned to the app.
-     */
-    override fun onMapReady(googleMap: GoogleMap) {
-        Log.d(TAG, "onMapReady()")
-        map = googleMap
-
-
-    }
-
     private fun initGmaps() {
         Log.d(TAG, "initGmaps()")
         // Obtain the SupportMapFragment and get notified when the map is ready to be used.
@@ -296,6 +283,56 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback, LocationListener {
         fusedLocationClient = LocationServices.getFusedLocationProviderClient(this)
     }
 
+    /**
+     * Manipulates the map once available.
+     * This callback is triggered when the map is ready to be used.
+     * This is where we can add markers or lines, add listeners or move the camera. In this case,
+     * we just add a marker near Sydney, Australia.
+     * If Google Play services is not installed on the device, the user will be prompted to install
+     * it inside the SupportMapFragment. This method will only be triggered once the user has
+     * installed Google Play services and returned to the app.
+     */
+    override fun onMapReady(googleMap: GoogleMap) {
+        Log.d(TAG, "onMapReady()")
+        map = googleMap
+        map.setOnMapClickListener(this)
+        map.setOnMarkerClickListener(this)
+
+    }
+
+    override fun onMapClick(latLng: LatLng) {
+
+        Log.d(TAG, "onMapClick($latLng)")
+        markerForGeofence(latLng)
+    }
+
+    override fun onMarkerClick(marker: Marker): Boolean {
+
+        Log.d(TAG, "onMarkerClickListener: " + marker.position)
+        return false
+    }
+
+    private fun markerForGeofence(latLng: LatLng) {
+
+        Log.i(TAG, "markerForGeoFence$latLng)")
+
+        // Define Marker Options
+        val title = latLng.latitude.toString() + ", " + latLng.longitude
+        val markerOptions = MarkerOptions().position(latLng).icon(
+            BitmapDescriptorFactory
+                .defaultMarker(
+                    BitmapDescriptorFactory.HUE_AZURE
+                )
+        )
+            .title(title)
+
+        // Remove last geoFenceMarker
+        if (geoFenceMarker != null) {
+            geoFenceMarker!!.remove()
+        }
+
+        geoFenceMarker = map.addMarker(markerOptions)
+    }
 
     override fun onStatusChanged(provider: String?, status: Int, extras: Bundle?) {
         TODO("not implemented") //To change body of created functions use File | Settings | File Templates.
