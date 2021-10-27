@@ -1,9 +1,12 @@
 # HIGHEST GROSSING FILMS!
-With the following list of movies (attached image), create an Activity that includes a RecyclerView that shows on each item the name of the movie, the Distributor and the Gross money: 
+With the following list of movies (attached image), create an Activity that includes a RecyclerView that shows on each item the name of the movie, the Distributor and the Gross Profits: 
+
 ![Image of Films](http://i.imgur.com/xLQy4Kb.png)
+
 Remember to use a ViewHolder and an Adapter.
  
 Result: 
+
 ![Video Of App](http://i.imgur.com/vWy6CNk.gif)
 
 **NOTES: **
